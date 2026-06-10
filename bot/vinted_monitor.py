@@ -1,5 +1,6 @@
 import asyncio
 import html
+from datetime import datetime
 from api.vinted_api import VintedAPI
 from bot.telegram_bot import TelegramBot
 from db.product_database import ProductDatabase
@@ -73,7 +74,8 @@ class VintedMonitor:
             price_str = f"{price_data} €" if price_data else "N/A"
         
         # Creazione del messaggio più compatto con HTML
-        message_text = f"<b>{safe_title}</b>\n\n💸 <b>Price:</b> {price_str}\n📍 <b>Country:</b> {country_name}"
+        added_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        message_text = f"<b>{safe_title}</b>\n\n💸 <b>Price:</b> {price_str}\n📍 <b>Country:</b> {country_name}\n🕒 <b>Added:</b> {added_time}"
         
         return message_text
 
