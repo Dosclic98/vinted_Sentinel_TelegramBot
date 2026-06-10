@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 import json
 from datetime import datetime
 from pathlib import Path
@@ -27,7 +31,7 @@ class ProductDatabase:
 
     def add_product(self, product):
         try:
-            self.seen_products[product['id']] = {
+            self.seen_products[str(product["id"])] = {
                 "data": product,
                 "timestamp": datetime.now().isoformat()
             }

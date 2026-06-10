@@ -1,4 +1,5 @@
 import asyncio
+import html
 from api.vinted_api import VintedAPI
 from bot.telegram_bot import TelegramBot
 from db.product_database import ProductDatabase
@@ -37,8 +38,8 @@ class VintedMonitor:
                                 # Invia il messaggio con immagine e link
                                 self.bot.send_message(
                                     message_text,
-                                    image_url=item.get('image_url'),  # Passa l'URL dell'immagine
-                                    product_url=item['url']           # Passa il link al prodotto
+                                    image_url=item.get('image_url'),  # Passa l'URL dell'immagine (solo la prima)
+                                    product_url=item.get('url')           # Passa il link al prodotto
                                 )
                                 logger.info(f"New product found and posted: {item.get('title')}")
                             except Exception as e:
@@ -55,13 +56,24 @@ class VintedMonitor:
         country_name = self.get_country_name_from_code(country_code)
         
         # Dettagli del prodotto
-        title = item['title']
-        price = item['price']
-        url = item['url']
-        image_url = item.get('image_url')  # Assumiamo che l'immagine sia nell'oggetto 'item'
+        title = item.get('title', 'No Title')
         
-        # Creazione del messaggio
-        message_text = f"New Product in {country_name}: {title}\nPrice: {price}€\nCountry: {country_name}\nLink: {url}"
+        # Escape html characters in title
+        safe_title = html.escape(title)
+
+        price_data = item.get('price', {})
+        if isinstance(price_data, dict):
+            amount = price_data.get('amount', 'N/A')
+            currency = price_data.get('currency_code', 'EUR')
+            # Mappa i codici valuta ai simboli
+            currency_symbols = {'EUR': '€', 'GBP': '£', 'USD': '$', 'PLN': 'zł'}
+            currency_symbol = currency_symbols.get(currency, currency)
+            price_str = f"{amount} {currency_symbol}"
+        else:
+            price_str = f"{price_data} €" if price_data else "N/A"
+        
+        # Creazione del messaggio più compatto con HTML
+        message_text = f"<b>{safe_title}</b>\n\n💸 <b>Price:</b> {price_str}\n📍 <b>Country:</b> {country_name}"
         
         return message_text
 
