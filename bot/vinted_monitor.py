@@ -1,5 +1,6 @@
 import asyncio
 import html
+import random
 from datetime import datetime
 from api.vinted_api import VintedAPI
 from bot.telegram_bot import TelegramBot
@@ -17,11 +18,23 @@ class VintedMonitor:
     async def start_monitoring(self):
         while True:
             try:
-                for country_code in self.config['countries']:
+                is_first_request = True
+                shuffle_countries = self.config['countries'][:]
+                random.shuffle(shuffle_countries)
+                for country_code in shuffle_countries:
                     # Iniziamo una nuova sessione API per ciascun paese
                     self.api = VintedAPI(country_code)
                     
-                    for search_term in self.config['search_terms']:
+                    shuffle_search_terms = self.config['search_terms'][:]
+                    random.shuffle(shuffle_search_terms)
+                    for search_term in shuffle_search_terms:
+                        if not is_first_request:
+                            # Stochastic delay between requests (e.g., 2 to 6 seconds)
+                            delay = random.uniform(2.0, 6.0)
+                            logger.debug(f"Waiting {delay:.2f} seconds before next request...")
+                            await asyncio.sleep(delay)
+                        is_first_request = False
+                        
                         logger.debug(f"Searching for term: {search_term} in {country_code}")
                         items = await self.api.search_products(search_term)
                         
@@ -47,7 +60,11 @@ class VintedMonitor:
                                 logger.error(f"Error processing item: {str(e)}")
                                 continue
 
-                await asyncio.sleep(self.config['refresh_delay'])
+                # Add uncertainty to the refresh delay (±20% variation)
+                base_delay = self.config['refresh_delay']
+                stochastic_refresh = random.uniform(base_delay * 0.8, base_delay * 1.2)
+                logger.debug(f"Waiting {stochastic_refresh:.2f} seconds before next full check loop...")
+                await asyncio.sleep(stochastic_refresh)
                 
             except Exception as e:
                 logger.error(f"Error in monitoring loop: {str(e)}")
@@ -74,7 +91,7 @@ class VintedMonitor:
             price_str = f"{price_data} €" if price_data else "N/A"
         
         # Creazione del messaggio più compatto con HTML
-        added_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        added_time = datetime.now().strftime("%d/%m/%Y - %H:%M")
         message_text = f"<b>{safe_title}</b>\n\n💸 <b>Price:</b> {price_str}\n📍 <b>Country:</b> {country_name}\n🕒 <b>Added:</b> {added_time}"
         
         return message_text
