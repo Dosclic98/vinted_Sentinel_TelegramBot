@@ -1,10 +1,26 @@
 {
-    "token": "1785285281:AAHDppfB-kUkZi48ztUws6dFKLfjYvHUb34",
-    "channel_id": "-1003934808629",
-    "search_terms": ["Ryzen 5600x", "Ryzen 5700x", "Motherboard AM4",  "Ryzen 7600", "Motherboard AM5", "RAM DDR4", "RAM DDR5"],
-    "refresh_delay": 120,
-    "max_images_per_post": 1,
-    "countries": [".de", ".it", ".fr", ".es", ".nl"],
-    "proxy_username": "qvxsdhnw",
-    "proxy_password": "y7ixiol0s7nr"
+  "token": "YOUR_TELEGRAM_BOT_TOKEN",
+  "channel_id": "YOUR_TELEGRAM_CHANNEL_ID",
+  "search_terms": [
+    "Ryzen 5600x",
+    "Ryzen 5700x",
+    "Motherboard AM4",
+    "Ryzen 7600",
+    "Motherboard AM5",
+    "RAM DDR4",
+    "RAM DDR5"
+  ],
+  "refresh_delay": 120,
+  "max_images_per_post": 1,
+  "countries": [
+    ".de",
+    ".it",
+    ".fr",
+    ".es",
+    ".nl"
+  ],
+  "proxy_username": "YOUR_WEBSHARE_USERNAME",
+  "proxy_password": "YOUR_WEBSHARE_PASSWORD",
+  "proxy_enabled": false,
+  "proxy_count": 10
 }

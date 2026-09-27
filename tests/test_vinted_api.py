@@ -28,6 +28,38 @@ class VintedAPITest(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(sleep_patch.stop)
         self.addCleanup(self.session.close)
 
+    async def test_proxy_is_used_for_bootstrap_and_401_recovery(self):
+        proxy = 'http://test-user-1:test-password@p.webshare.io:80'
+        calls = []
+
+        def get(url, **kwargs):
+            calls.append(url)
+            self.assertEqual(self.session.proxies, {'http': proxy, 'https': proxy})
+            self.assertFalse(self.session.trust_env)
+            if len(calls) == 2:
+                return response(401)
+            return response()
+
+        self.session.get.side_effect = get
+        api = VintedAPI(proxy_url=proxy)
+        self.assertEqual(await api.search_products('cpu'), [])
+        self.assertEqual(len(calls), 4)
+
+    async def test_proxy_failure_is_redacted_and_never_falls_back(self):
+        proxy = 'http://test-user-1:test%40password@p.webshare.io:80'
+        self.session.get.side_effect = requests.exceptions.ProxyError(
+            f'Cannot connect to {proxy}: test@password test-user-1'
+        )
+        with self.assertLogs('api.vinted_api', level='ERROR') as logs:
+            api = VintedAPI(proxy_url=proxy)
+            self.assertEqual(await api.search_products('cpu'), [])
+        messages = '\n'.join(logs.output)
+        for secret in ('test-user-1', 'test@password', 'test%40password'):
+            self.assertNotIn(secret, messages)
+        self.assertEqual(self.session.proxies['https'], proxy)
+        self.assertFalse(self.session.trust_env)
+        self.assertTrue(all(call.args[0].endswith('/catalog') for call in self.session.get.call_args_list))
+
     async def test_401_renews_cookies_before_retry(self):
         def get(url, **kwargs):
             if url.endswith('/catalog'):

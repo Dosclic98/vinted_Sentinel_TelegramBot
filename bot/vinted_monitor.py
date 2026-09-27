@@ -2,6 +2,8 @@ import asyncio
 import html
 import random
 from datetime import datetime
+from contextlib import closing
+from api.proxy_pool import WebshareProxyPool
 from api.vinted_api import VintedAPI
 from bot.telegram_bot import TelegramBot
 from db.product_database import ProductDatabase
@@ -12,6 +14,7 @@ logger = logging.getLogger(__name__)
 class VintedMonitor:
     def __init__(self, config):
         self.config = config
+        self.proxy_pool = WebshareProxyPool(config)
         self.db = ProductDatabase()
         self.bot = TelegramBot(config['token'], config['channel_id'])
 
@@ -23,42 +26,43 @@ class VintedMonitor:
                 random.shuffle(shuffle_countries)
                 for country_code in shuffle_countries:
                     # Iniziamo una nuova sessione API per ciascun paese
-                    self.api = VintedAPI(country_code)
+                    self.api = VintedAPI(country_code, proxy_url=self.proxy_pool.next_proxy())
                     
-                    shuffle_search_terms = self.config['search_terms'][:]
-                    random.shuffle(shuffle_search_terms)
-                    for search_term in shuffle_search_terms:
-                        if not is_first_request:
-                            # Stochastic delay between requests (e.g., 2 to 6 seconds)
-                            delay = random.uniform(2.0, 6.0)
-                            logger.debug(f"Waiting {delay:.2f} seconds before next request...")
-                            await asyncio.sleep(delay)
-                        is_first_request = False
+                    with closing(self.api.session):
+                        shuffle_search_terms = self.config['search_terms'][:]
+                        random.shuffle(shuffle_search_terms)
+                        for search_term in shuffle_search_terms:
+                            if not is_first_request:
+                                # Stochastic delay between requests (e.g., 2 to 6 seconds)
+                                delay = random.uniform(2.0, 6.0)
+                                logger.debug(f"Waiting {delay:.2f} seconds before next request...")
+                                await asyncio.sleep(delay)
+                            is_first_request = False
                         
-                        logger.debug(f"Searching for term: {search_term} in {country_code}")
-                        items = await self.api.search_products(search_term)
+                            logger.debug(f"Searching for term: {search_term} in {country_code}")
+                            items = await self.api.search_products(search_term)
                         
-                        for item in items:
-                            try:
-                                item_id = str(item.get('id'))
-                                if not item_id or self.db.is_product_seen(item_id):
+                            for item in items:
+                                try:
+                                    item_id = str(item.get('id'))
+                                    if not item_id or self.db.is_product_seen(item_id):
+                                        continue
+                                
+                                    self.db.add_product(item)
+                                
+                                    # Creazione del messaggio da inviare a Telegram
+                                    message_text = self.create_message(item, country_code)
+                                
+                                    # Invia il messaggio con immagine e link
+                                    self.bot.send_message(
+                                        message_text,
+                                        image_url=item.get('image_url'),  # Passa l'URL dell'immagine (solo la prima)
+                                        product_url=item.get('url')           # Passa il link al prodotto
+                                    )
+                                    logger.info(f"New product found and posted: {item.get('title')}")
+                                except Exception as e:
+                                    logger.error(f"Error processing item: {str(e)}")
                                     continue
-                                
-                                self.db.add_product(item)
-                                
-                                # Creazione del messaggio da inviare a Telegram
-                                message_text = self.create_message(item, country_code)
-                                
-                                # Invia il messaggio con immagine e link
-                                self.bot.send_message(
-                                    message_text,
-                                    image_url=item.get('image_url'),  # Passa l'URL dell'immagine (solo la prima)
-                                    product_url=item.get('url')           # Passa il link al prodotto
-                                )
-                                logger.info(f"New product found and posted: {item.get('title')}")
-                            except Exception as e:
-                                logger.error(f"Error processing item: {str(e)}")
-                                continue
 
                 # Add uncertainty to the refresh delay (±20% variation)
                 base_delay = self.config['refresh_delay']

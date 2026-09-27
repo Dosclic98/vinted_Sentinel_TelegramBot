@@ -2,7 +2,7 @@ import asyncio
 import logging
 import random
 from typing import Dict, List
-from urllib.parse import urljoin
+from urllib.parse import unquote, urljoin, urlsplit
 
 import requests
 
@@ -13,7 +13,7 @@ class VintedAPI:
     REQUEST_TIMEOUT = (5, 20)
     CATALOG_PATH = '/web/gateway/svc-catalogue/items'
 
-    def __init__(self, country_code=".de"):
+    def __init__(self, country_code=".de", proxy_url=None):
         self.country_code = country_code
         domain = '.co.uk' if country_code == '.uk' else country_code
         self.locale = {
@@ -21,6 +21,12 @@ class VintedAPI:
             '.es': 'es-ES', '.uk': 'en-GB', '.co.uk': 'en-GB',
         }.get(country_code, 'en-US')
         self.session = requests.Session()
+        self._proxy_url = proxy_url
+        if proxy_url:
+            # Apply before bootstrap so cookies and searches use the same IP.
+            # Environment proxies/NO_PROXY must not override this selection.
+            self.session.trust_env = False
+            self.session.proxies.update({'http': proxy_url, 'https': proxy_url})
         self.base_url = f"https://www.vinted{domain}"
         self._session_ready = self._fetch_cookies()
 
@@ -40,8 +46,18 @@ class VintedAPI:
             self._session_ready = True
             return True
         except requests.RequestException as exc:
-            logger.error("Failed to fetch cookies for %s: %s", self.base_url, exc)
+            logger.error("Failed to fetch cookies for %s: %s", self.base_url, self._safe_error(exc))
             return False
+
+    def _safe_error(self, exc):
+        message = str(exc)
+        if self._proxy_url:
+            proxy = urlsplit(self._proxy_url)
+            secrets = [self._proxy_url, proxy.username, proxy.password]
+            secrets += [unquote(value) for value in secrets if value]
+            for value in sorted(set(filter(None, secrets)), key=len, reverse=True):
+                message = message.replace(value, '[redacted]')
+        return message
 
     def _get_headers(self) -> Dict:
         # requests.Session sends the authentication cookies with their correct scope.
@@ -95,7 +111,7 @@ class VintedAPI:
                     items.append(item)
                 return items
             except (requests.RequestException, ValueError) as exc:
-                logger.error("Failed to search products (attempt %s/%s): %s", attempt + 1, max_retries, exc)
+                logger.error("Failed to search products (attempt %s/%s): %s", attempt + 1, max_retries, self._safe_error(exc))
                 if attempt < max_retries - 1:
                     sleep_time = (base_delay ** attempt) + random.uniform(0.1, 1.0)
                     logger.info("Retrying in %.2f seconds...", sleep_time)

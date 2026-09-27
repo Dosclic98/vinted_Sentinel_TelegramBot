@@ -67,7 +67,15 @@ pip install -r requirements.txt
 ```
 
 ### 3️⃣ Configure the bot
-> Create the configuration file `config/config.json` with the following parameters:
+Copy the template to your private production configuration:
+
+```bash
+cp config/config.json config/config.prod.json
+```
+
+Edit `config/config.prod.json` with your real settings. The bot reads this file; Git ignores it. Keep placeholders in `config/config.json` for sharing on GitHub. Proxies are disabled by default.
+
+The main configuration fields are:
 ```json
 {
   "token": "your_telegram_bot_token",
@@ -86,6 +94,23 @@ pip install -r requirements.txt
 - `search_terms:` List of keywords to monitor (e.g., brands, categories).
 
 - `countries:` Countries to monitor (e.g., .de for Germany, .it for Italy).
+
+### Optional Webshare proxies
+
+The bot supports Webshare's [Backbone connection](https://help.webshare.io/en/articles/8375305-understanding-proxy-connection-types-direct-rotating-and-backbone). To enable proxies, set these fields in `config/config.prod.json`:
+
+```json
+{
+  "proxy_enabled": true,
+  "proxy_count": 10,
+  "proxy_username": "YOUR_BASE_WEBSHARE_USERNAME",
+  "proxy_password": "YOUR_WEBSHARE_PROXY_PASSWORD"
+}
+```
+
+Use the base proxy username from the dashboard's Direct Connection view, without a numbered or `-rotate` suffix. The bot connects through `p.webshare.io:80` using numbered usernames (`USERNAME-1` through `USERNAME-10`). Match `proxy_count` to the number of proxies in your account and confirm the numbered usernames in the dashboard's Backbone Connection view.
+
+A new country scan selects the next proxy; cookie initialization, searches, and retries stay on that proxy until the scan ends. Only Vinted requests use this pool. Proxy failures do not fall back to a direct connection. Set `proxy_enabled` to `false` to disable this integration. Existing request delays still apply; proxies do not guarantee that Vinted will accept requests. Monitor your Webshare bandwidth allowance.
 
 ### 4️⃣ Start the bot
 Once configured, run the bot with the following command:
@@ -113,7 +138,8 @@ python main.py
 ```bash
 vinted-monitor/
 ├── config/
-│   └── config.json         # Bot configuration file
+│   ├── config.json         # Public template with placeholder credentials
+│   └── config.prod.json    # Private runtime settings (ignored by Git)
 ├── bot/
 │   ├── telegram_bot.py     # Sends notifications via Telegram
 │   └── vinted_monitor.py   # Logic for monitoring Vinted products
@@ -130,7 +156,8 @@ vinted-monitor/
 ## 🧩 File Details
 - `main.py:` Initializes and starts the bot.
 
-- `config/config.json:` Bot configuration (token, channel, keywords).
+- `config/config.json:` Public configuration template with placeholder credentials.
+- `config/config.prod.json:` Private runtime configuration (token, channel, keywords, proxies); ignored by Git.
 
 - `bot/telegram_bot.py:` Sends notifications on Telegram.
 

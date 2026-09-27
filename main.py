@@ -1,13 +1,15 @@
 import json
 import logging
 import asyncio
+from pathlib import Path
 from bot.vinted_monitor import VintedMonitor
 
 logging.basicConfig(level=logging.DEBUG)
 
 def main():
     try:
-        with open('config/config.json') as f:
+        config_path = Path(__file__).resolve().parent / 'config' / 'config.prod.json'
+        with config_path.open(encoding='utf-8') as f:
             config = json.load(f)
         
         monitor = VintedMonitor(config)
