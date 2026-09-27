@@ -1,8 +1,10 @@
 {
-    "token": "your_telegram_bot_token",
-    "channel_id": "your_telegram_chat_id",
-    "search_terms": ["ralph lauren", "nike"],
-    "refresh_delay": 3,
-    "max_images_per_post": 4,
-    "countries": [".de", ".it", ".fr"]
+    "token": "1785285281:AAHDppfB-kUkZi48ztUws6dFKLfjYvHUb34",
+    "channel_id": "-1003934808629",
+    "search_terms": ["Ryzen 5600x", "Ryzen 5700x", "Motherboard AM4",  "Ryzen 7600", "Motherboard AM5", "RAM DDR4", "RAM DDR5"],
+    "refresh_delay": 120,
+    "max_images_per_post": 1,
+    "countries": [".de", ".it", ".fr", ".es", ".nl"],
+    "proxy_username": "qvxsdhnw",
+    "proxy_password": "y7ixiol0s7nr"
 }
