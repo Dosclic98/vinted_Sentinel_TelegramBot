@@ -79,8 +79,8 @@ class VintedAPITest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.session.get.call_args.kwargs['headers']['Platform'], 'web')
         self.assertEqual(self.session.get.call_args.kwargs['headers']['Locale'], 'de-DE')
         self.assertEqual([call.args[0] for call in self.session.get.call_args_list], [
-            api.base_url + '/catalog', api.base_url + '/web/gateway/svc-catalogue/items',
-            api.base_url + '/catalog', api.base_url + '/web/gateway/svc-catalogue/items',
+            api.base_url + '/catalog', 'https://api.vinted.de/svc-catalogue/items',
+            api.base_url + '/catalog', 'https://api.vinted.de/svc-catalogue/items',
         ])
         for call in self.session.get.call_args_list:
             self.assertEqual(call.kwargs['timeout'], api.REQUEST_TIMEOUT)
@@ -113,6 +113,37 @@ class VintedAPITest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await VintedAPI().search_products('cpu'), [])
         self.assertEqual(self.session.get.call_count, 2)
         self.sleep.assert_not_awaited()
+
+    async def test_404_stops_without_retry(self):
+        self.session.get.side_effect = [response(), response(404)]
+        with self.assertLogs('api.vinted_api', level='ERROR') as logs:
+            self.assertEqual(await VintedAPI().search_products('cpu'), [])
+        self.assertEqual(self.session.get.call_count, 2)
+        self.sleep.assert_not_awaited()
+        self.assertIn('endpoint not found', '\n'.join(logs.output))
+
+    async def test_country_api_hosts_and_website_links(self):
+        for country, host, api_host in [
+            ('.de', 'www.vinted.de', 'api.vinted.de'),
+            ('.it', 'www.vinted.it', 'api.vinted.it'),
+            ('.fr', 'www.vinted.fr', 'api.vinted.fr'),
+            ('.uk', 'www.vinted.co.uk', 'api.vinted.co.uk'),
+            ('.co.uk', 'www.vinted.co.uk', 'api.vinted.co.uk'),
+            ('.com', 'www.vinted.com', 'api.www.vinted.com'),
+        ]:
+            with self.subTest(country=country):
+                self.session.get.reset_mock()
+                self.session.get.side_effect = [response(), response(items=[
+                    {'id': 1, 'url': '/items/1-cpu'},
+                ])]
+                api = VintedAPI(country)
+                items = await api.search_products('i7 7700')
+                bootstrap, search = self.session.get.call_args_list
+                self.assertEqual(bootstrap.args[0], f'https://{host}/catalog')
+                self.assertEqual(search.args[0], f'https://{api_host}/svc-catalogue/items')
+                self.assertEqual(search.kwargs['headers']['Origin'], f'https://{host}')
+                self.assertEqual(search.kwargs['params']['search_text'], 'i7 7700')
+                self.assertEqual(items[0]['url'], f'https://{host}/items/1-cpu')
 
     async def test_photos_and_empty_results(self):
         self.session.get.side_effect = [response(), response(items=[

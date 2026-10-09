@@ -2,13 +2,15 @@
   "token": "YOUR_TELEGRAM_BOT_TOKEN",
   "channel_id": "YOUR_TELEGRAM_CHANNEL_ID",
   "search_terms": [
-    "Ryzen 5600x",
+    "Ryzen 5600",
     "Ryzen 5700x",
     "Motherboard AM4",
     "Ryzen 7600",
     "Motherboard AM5",
     "RAM DDR4",
-    "RAM DDR5"
+    "RAM DDR5",
+    "i7 6700",
+    "i7 7700"
   ],
   "refresh_delay": 120,
   "max_images_per_post": 1,

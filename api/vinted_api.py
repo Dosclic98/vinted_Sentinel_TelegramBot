@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class VintedAPI:
     REQUEST_TIMEOUT = (5, 20)
-    CATALOG_PATH = '/web/gateway/svc-catalogue/items'
+    CATALOG_PATH = '/svc-catalogue/items'
 
     def __init__(self, country_code=".de", proxy_url=None):
         self.country_code = country_code
@@ -28,6 +28,10 @@ class VintedAPI:
             self.session.trust_env = False
             self.session.proxies.update({'http': proxy_url, 'https': proxy_url})
         self.base_url = f"https://www.vinted{domain}"
+        # The website gateway no longer serves catalog searches. Use the same
+        # API host as Vinted's frontend, retaining www for the US API host.
+        api_prefix = 'api.www' if domain == '.com' else 'api'
+        self.api_base_url = f"https://{api_prefix}.vinted{domain}"
         self._session_ready = self._fetch_cookies()
 
     def _fetch_cookies(self) -> bool:
@@ -66,6 +70,7 @@ class VintedAPI:
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'en-US,en;q=0.9',
             'Referer': f'{self.base_url}/catalog',
+            'Origin': self.base_url,
             'Platform': 'web',
             'Locale': self.locale,
             'X-Next-App': 'marketplace-web',
@@ -87,7 +92,7 @@ class VintedAPI:
                     raise requests.RequestException('Could not initialize Vinted session')
 
                 response = self.session.get(
-                    f'{self.base_url}{self.CATALOG_PATH}',
+                    f'{self.api_base_url}{self.CATALOG_PATH}',
                     params=params,
                     headers=self._get_headers(),
                     timeout=self.REQUEST_TIMEOUT,
@@ -97,6 +102,13 @@ class VintedAPI:
                     logger.warning("Vinted rejected the session for %s; cookies will be renewed", self.base_url)
                 elif response.status_code == 403:
                     logger.error("Vinted denied catalog access for %s (403); stopping this search", self.base_url)
+                    return []
+                elif response.status_code == 404:
+                    logger.error(
+                        "Vinted catalog endpoint not found at %s%s (404); "
+                        "stopping this search because retrying the same route will not help",
+                        self.api_base_url, self.CATALOG_PATH,
+                    )
                     return []
                 response.raise_for_status()
                 data = response.json()
